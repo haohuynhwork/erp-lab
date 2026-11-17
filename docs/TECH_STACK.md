@@ -33,7 +33,7 @@ Java for the core, Go for the edge, Python for analytics.
 | Real-time | Spring WebSocket (STOMP) – with MES machine monitoring |
 | Cache | Caffeine (later, when needed) |
 | Reports               | Apache POI (Excel), OpenPDF (PDF)                                                                                                                                                                                         |
-| Auditing              | JPA Auditing (`@CreatedBy`, `@LastModifiedDate`), soft delete                                                                                                                                                             |
+| Auditing | JPA Auditing (`@CreatedBy`, `@LastModifiedDate`), soft delete; `audit_log` of every successful command (AOP) |
 | Concurrency           | Optimistic locking (`@Version`) on stock                                                                                                                                                                                  |
 | Testing               | JUnit 5, Mockito, Testcontainers (PostgreSQL)                                                                                                                                                                             |
 
@@ -112,8 +112,8 @@ MQTT topic convention: `factory/{line}/{machine}/{metric}`
 | UI             | shadcn/ui (Radix) + Tailwind CSS v4, components in `src/components/ui`                                                                      |
 | Theme          | shadcn tokens + extra semantic colors `info` / `success` / `warning` / `neutral` (`src/styles.css`; source [theme.css](theme.css))            |
 | Routing        | TanStack Router, file-based (`src/routes/`); feature-private code in `routes/<feature>/-lib/`                                           |
-| Data           | TanStack Query; Axios (REST) + graphql-request (GraphQL)                                                                                |
-| API types      | openapi-typescript (from OpenAPI JSON), GraphQL Codegen (from schema)                                                                   |
+| Data | TanStack Query; `fetch` wrapper (`@/lib/api`) with token refresh |
+| API types | openapi-typescript from the OpenAPI spec (`pnpm gen:api` → `src/lib/api-types.ts`) |
 | Tables / Forms | TanStack Table, TanStack Form                                                                                                           |
 | Charts         | ECharts (OEE, SPC, Pareto, trends)                                                                                                      |
 | Real-time      | STOMP over WebSocket (with MES)                                                                                                         |

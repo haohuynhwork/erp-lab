@@ -18,14 +18,15 @@ public final class SalesCommands {
 	}
 
 	/** @param unitPrice null = the product's sale price */
-	public record LineInput(@NotNull Long productId, @NotNull @Positive BigDecimal quantity,
+	public record SalesLineInput(@NotNull Long productId, @NotNull @Positive BigDecimal quantity,
 			@PositiveOrZero BigDecimal unitPrice) {
 	}
 
 	/** Create or edit (Draft only). */
 	public record SaveSalesOrder(@NotNull Long customerId, @NotNull Long warehouseId, @NotNull LocalDate orderDate,
-			LocalDate deliveryDate, @NotNull @PositiveOrZero @DecimalMax("100") BigDecimal taxRate, String note,
-			@NotEmpty List<@Valid LineInput> lines) {
+			LocalDate deliveryDate, LocalDate validUntil, @NotNull @PositiveOrZero @DecimalMax("100") BigDecimal taxRate,
+			String note,
+			@NotEmpty List<@Valid SalesLineInput> lines) {
 	}
 
 	public record DeliveryLine(@NotNull Long lineId, @NotNull @PositiveOrZero BigDecimal quantity) {
@@ -41,6 +42,13 @@ public final class SalesCommands {
 
 	public record RecordPayment(@NotNull @Positive BigDecimal amount, LocalDate date, @NotBlank String method,
 			String reference) {
+	}
+
+	/** @param position 0-based invoice line */
+	public record CreditLine(@NotNull Integer position, @NotNull @Positive BigDecimal quantity) {
+	}
+
+	public record CreateCreditNote(LocalDate date, @NotBlank String reason, @NotEmpty List<@Valid CreditLine> lines) {
 	}
 
 }

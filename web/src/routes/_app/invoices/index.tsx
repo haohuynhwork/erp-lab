@@ -49,7 +49,7 @@ function Invoices() {
             setStatus(s);
             setPage(0);
           }}
-          statuses={["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"]}
+          statuses={["ISSUED", "PARTIALLY_PAID", "PAID", "CREDITED", "OVERDUE"]}
         />
       </div>
       <DataTable

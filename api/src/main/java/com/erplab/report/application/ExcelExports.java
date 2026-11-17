@@ -24,7 +24,8 @@ public class ExcelExports {
 
 		STOCK("Stock", """
 				SELECT p.sku AS "SKU", p.name AS "Product", w.code AS "Warehouse", u.code AS "Unit",
-				       s.quantity AS "Quantity", s.average_cost AS "Average cost",
+				       s.quantity AS "Quantity", s.reserved AS "Reserved", s.quantity - s.reserved AS "Available",
+				       s.average_cost AS "Average cost",
 				       round(s.quantity * s.average_cost, 2) AS "Value", p.min_stock AS "Min stock"
 				FROM stock_item s JOIN product p ON p.id = s.product_id JOIN warehouse w ON w.id = s.warehouse_id
 				LEFT JOIN unit u ON u.id = p.unit_id ORDER BY p.sku, w.code"""),
@@ -38,7 +39,8 @@ public class ExcelExports {
 				FROM purchase_order o JOIN partner s ON s.id = o.supplier_id WHERE o.deleted_at IS NULL ORDER BY o.id DESC"""),
 		INVOICES("Invoices", """
 				SELECT i.number AS "Number", i.issue_date AS "Date", i.due_date AS "Due", c.name AS "Customer",
-				       i.status AS "Status", i.total AS "Total", i.paid_amount AS "Paid", i.total - i.paid_amount AS "Balance"
+				       i.status AS "Status", i.total AS "Total", i.paid_amount AS "Paid", i.credited_amount AS "Credited",
+				       i.total - i.paid_amount - i.credited_amount AS "Balance"
 				FROM invoice i JOIN partner c ON c.id = i.customer_id ORDER BY i.id DESC"""),
 		TRIAL_BALANCE("Trial balance", """
 				SELECT a.code AS "Code", a.name AS "Account", a.type AS "Type",

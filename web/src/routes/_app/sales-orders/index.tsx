@@ -32,12 +32,12 @@ function SalesOrders() {
     <div>
       <PageHeader
         title="Sales orders"
-        description="Confirm, deliver from stock, then invoice"
+        description="Quotations (drafts) become orders when confirmed, which reserves stock; then deliver and invoice"
         actions={
           can("sales:write") && (
             <Button asChild>
               <Link to="/sales-orders/new">
-                <Plus /> New order
+                <Plus /> New quotation
               </Link>
             </Button>
           )
@@ -51,6 +51,7 @@ function SalesOrders() {
           className="max-w-xs"
         />
         <StatusTabs
+          labels={{ DRAFT: "quotations" }}
           value={status}
           onChange={(s) => {
             setStatus(s);
@@ -76,7 +77,7 @@ function SalesOrders() {
           {
             accessorKey: "status",
             header: "Status",
-            cell: ({ getValue }) => <StatusBadge status={getValue()} />,
+            cell: ({ getValue }) => <StatusBadge status={getValue()} sales />,
           },
           {
             accessorKey: "total",

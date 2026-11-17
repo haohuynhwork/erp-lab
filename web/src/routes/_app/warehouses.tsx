@@ -1,16 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CrudPage } from "@/components/crud-page";
 import { Badge } from "@/components/ui/badge";
+import type { Schemas } from "@/lib/schemas";
 
 export const Route = createFileRoute("/_app/warehouses")({ component: Warehouses });
 
-type Warehouse = {
-  id: number;
-  code: string;
-  name: string;
-  address: string | null;
-  active: boolean;
-};
+type Warehouse = Schemas["WarehouseView"];
 
 function Warehouses() {
   return (

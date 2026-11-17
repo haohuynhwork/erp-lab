@@ -14,6 +14,7 @@ import com.erplab.masterdata.MasterdataApi;
 import com.erplab.purchasing.application.command.PurchasingCommands.*;
 import com.erplab.purchasing.domain.PurchaseOrder;
 import com.erplab.purchasing.domain.PurchaseOrderRepository;
+import com.erplab.purchasing.domain.SupplierBillRepository;
 
 @Service
 @Transactional
@@ -21,15 +22,18 @@ public class PurchasingCommandHandler {
 
 	private final PurchaseOrderRepository orders;
 
+	private final SupplierBillRepository bills;
+
 	private final MasterdataApi masterdata;
 
 	private final DocumentNumbers numbers;
 
 	private final ApplicationEventPublisher events;
 
-	PurchasingCommandHandler(PurchaseOrderRepository orders, MasterdataApi masterdata, DocumentNumbers numbers,
-			ApplicationEventPublisher events) {
+	PurchasingCommandHandler(PurchaseOrderRepository orders, SupplierBillRepository bills, MasterdataApi masterdata,
+			DocumentNumbers numbers, ApplicationEventPublisher events) {
 		this.orders = orders;
+		this.bills = bills;
 		this.masterdata = masterdata;
 		this.numbers = numbers;
 		this.events = events;
@@ -77,6 +81,22 @@ public class PurchasingCommandHandler {
 		cmd.lines().forEach(l -> quantities.merge(l.lineId(), l.quantity(), java.math.BigDecimal::add));
 		var event = load(id).receive(quantities, cmd.date() != null ? cmd.date() : LocalDate.now());
 		events.publishEvent(event);
+	}
+
+	/** @return the new bill id */
+	public Long bill(Long orderId, CreateBill cmd) {
+		var order = load(orderId);
+		var terms = masterdata.partner(order.getSupplierId()).paymentTermDays();
+		var date = cmd.date() != null ? cmd.date() : LocalDate.now();
+		return bills.save(order.bill(numbers.next("BILL", "supplier_bill_number_seq"), cmd.supplierReference(), date,
+				terms)).getId();
+	}
+
+	/** Publishes BillPaymentMade; accounting books payables against cash. */
+	public void pay(Long billId, PayBill cmd) {
+		var bill = bills.findById(billId).orElseThrow(() -> new NotFoundException("Bill", billId));
+		events.publishEvent(bill.registerPayment(cmd.amount(), cmd.date() != null ? cmd.date() : LocalDate.now(),
+				cmd.method(), cmd.reference()));
 	}
 
 	private PurchaseOrder load(Long id) {

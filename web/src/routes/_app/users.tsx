@@ -2,17 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CrudPage } from "@/components/crud-page";
 import { Badge } from "@/components/ui/badge";
 import { post, put } from "@/lib/api";
+import type { Schemas } from "@/lib/schemas";
 
 export const Route = createFileRoute("/_app/users")({ component: Users });
 
-type User = {
-  id: number;
-  username: string;
-  fullName: string;
-  email: string | null;
-  enabled: boolean;
-  roles: string[];
-};
+type User = Schemas["UserView"];
 
 const roles = ["ADMIN", "MANAGER", "SALES", "PURCHASING", "WAREHOUSE", "ACCOUNTANT"].map((r) => ({
   value: r,

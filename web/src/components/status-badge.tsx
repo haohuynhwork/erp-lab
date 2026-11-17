@@ -12,12 +12,15 @@ const variants: Record<
   PARTIALLY_PAID: "warning",
   PAID: "success",
   OVERDUE: "destructive",
+  OPEN: "info",
+  CREDITED: "neutral",
+  QUOTATION: "secondary",
 };
 
-export function StatusBadge({ status }: { status: string }) {
+/** Document status; sales drafts are shown as quotations. */
+export function StatusBadge({ status, sales }: { status: string; sales?: boolean }) {
+  const shown = sales && status === "DRAFT" ? "QUOTATION" : status;
   return (
-    <Badge variant={variants[status] ?? "secondary"}>
-      {status.replace("_", " ").toLowerCase()}
-    </Badge>
+    <Badge variant={variants[shown] ?? "secondary"}>{shown.replace("_", " ").toLowerCase()}</Badge>
   );
 }

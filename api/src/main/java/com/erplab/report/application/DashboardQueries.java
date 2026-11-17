@@ -34,6 +34,8 @@ public class DashboardQueries {
 		var kpis = jdbc.sql("""
 				SELECT
 				  (SELECT coalesce(sum(subtotal), 0) FROM invoice
+				    WHERE issue_date >= date_trunc('month', current_date))
+				  - (SELECT coalesce(sum(subtotal), 0) FROM credit_note
 				    WHERE issue_date >= date_trunc('month', current_date)) AS sales_this_month,
 				  (SELECT coalesce(sum(subtotal), 0) FROM invoice
 				    WHERE issue_date >= date_trunc('month', current_date) - interval '1 month'
@@ -42,13 +44,14 @@ public class DashboardQueries {
 				    AS open_sales_orders,
 				  (SELECT count(*) FROM purchase_order WHERE status IN ('DRAFT', 'CONFIRMED') AND deleted_at IS NULL)
 				    AS open_purchase_orders,
-				  (SELECT coalesce(sum(total - paid_amount), 0) FROM invoice) AS receivable,
-				  (SELECT coalesce(sum(total - paid_amount), 0) FROM invoice
-				    WHERE status <> 'PAID' AND due_date < current_date) AS overdue_receivable,
+				  (SELECT coalesce(sum(total - paid_amount - credited_amount), 0) FROM invoice) AS receivable,
+				  (SELECT coalesce(sum(total - paid_amount - credited_amount), 0) FROM invoice
+				    WHERE status IN ('ISSUED', 'PARTIALLY_PAID') AND due_date < current_date) AS overdue_receivable,
 				  (SELECT coalesce(sum(l.credit - l.debit), 0) FROM journal_line l JOIN account a ON a.id = l.account_id
 				    WHERE a.code = '2110') AS payable,
 				  (SELECT coalesce(round(sum(quantity * average_cost), 2), 0) FROM stock_item) AS inventory_value,
-				  (SELECT count(*) FROM stock_item s JOIN product p ON p.id = s.product_id WHERE s.quantity < p.min_stock)
+				  (SELECT count(*) FROM stock_item s JOIN product p ON p.id = s.product_id
+				    WHERE s.quantity - s.reserved < p.min_stock)
 				    AS low_stock_items""")
 			.query(Kpis.class)
 			.single();
@@ -57,8 +60,9 @@ public class DashboardQueries {
 				  SELECT generate_series(date_trunc('month', current_date) - interval '11 months',
 				                         date_trunc('month', current_date), interval '1 month')::date AS month)
 				SELECT to_char(m.month, 'YYYY-MM') AS month,
-				  (SELECT coalesce(sum(subtotal), 0) FROM invoice
-				    WHERE date_trunc('month', issue_date) = m.month) AS sales,
+				  (SELECT coalesce(sum(subtotal), 0) FROM invoice WHERE date_trunc('month', issue_date) = m.month)
+				  - (SELECT coalesce(sum(subtotal), 0) FROM credit_note WHERE date_trunc('month', issue_date) = m.month)
+				    AS sales,
 				  (SELECT coalesce(sum(l.debit), 0) FROM journal_line l JOIN journal_entry e ON e.id = l.journal_entry_id
 				    JOIN account a ON a.id = l.account_id
 				    WHERE a.code = '1410' AND e.source_type = 'PURCHASE_ORDER' AND date_trunc('month', e.entry_date) = m.month)

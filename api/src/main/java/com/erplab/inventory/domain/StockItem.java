@@ -25,6 +25,9 @@ public class StockItem extends BaseEntity {
 
 	private BigDecimal averageCost = BigDecimal.ZERO;
 
+	/** Promised to confirmed sales orders, not yet delivered. May exceed quantity (a shortage). */
+	private BigDecimal reserved = BigDecimal.ZERO;
+
 	protected StockItem() {
 	}
 
@@ -65,6 +68,19 @@ public class StockItem extends BaseEntity {
 		var delta = counted.subtract(quantity);
 		quantity = counted;
 		return Quantities.money(delta.multiply(averageCost));
+	}
+
+	public BigDecimal available() {
+		return quantity.subtract(reserved);
+	}
+
+	public void reserve(BigDecimal qty) {
+		reserved = reserved.add(Quantities.requirePositive(qty, "quantity"));
+	}
+
+	/** Releases up to {@code qty} (never below zero: deliveries may exceed what was reserved). */
+	public void release(BigDecimal qty) {
+		reserved = reserved.subtract(qty.min(reserved));
 	}
 
 }

@@ -120,4 +120,24 @@ public class PurchaseOrder extends BaseEntity {
 		return new GoodsReceived(getId(), number, supplierId, warehouseId, date, received, amount);
 	}
 
+	/** Bills everything received but not yet billed. */
+	public SupplierBill bill(String billNumber, String supplierReference, LocalDate date, int paymentTermDays) {
+		if (status != DocumentStatus.CONFIRMED && status != DocumentStatus.DONE) {
+			throw new DomainException("invalid_status", "Only confirmed orders can be billed");
+		}
+		var billLines = new ArrayList<SupplierBill.Line>();
+		for (var line : lines) {
+			var qty = line.toBill();
+			if (qty.signum() > 0) {
+				line.billed(qty);
+				billLines.add(new SupplierBill.Line(line.getProductId(), qty, line.getUnitPrice()));
+			}
+		}
+		if (billLines.isEmpty()) {
+			throw new DomainException("nothing_to_bill", "Nothing received is waiting to be billed");
+		}
+		return new SupplierBill(billNumber, supplierReference, getId(), supplierId, date, date.plusDays(paymentTermDays),
+				billLines);
+	}
+
 }

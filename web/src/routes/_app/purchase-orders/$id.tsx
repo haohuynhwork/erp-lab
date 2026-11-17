@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Check, PackageCheck, Pencil, X } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft, Check, FileText, PackageCheck, Pencil, X } from "lucide-react";
 import { useState } from "react";
 import { DataTable } from "@/components/data-table";
 import { Info } from "@/components/info";
@@ -9,24 +9,37 @@ import { PageHeader } from "@/components/page-header";
 import { QuantityDialog } from "@/components/quantity-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { api, post, put } from "@/lib/api";
 import { fmtDate, fmtMoney, fmtQty } from "@/lib/format";
 import { useCan } from "@/lib/session";
 import { useAction } from "@/lib/use-action";
-import type { PurchaseOrder, PurchaseOrderLine } from "./-lib/types";
+import type { BillRef, PurchaseOrder, PurchaseOrderLine } from "./-lib/types";
 
 export const Route = createFileRoute("/_app/purchase-orders/$id")({ component: PurchaseOrderPage });
 
 type Line = PurchaseOrderLine;
 
-type Detail = { order: PurchaseOrder; lines: Line[] };
+type Detail = { order: PurchaseOrder; lines: Line[]; bills: BillRef[] };
 
 function PurchaseOrderPage() {
   const { id } = Route.useParams();
   const can = useCan();
   const [editing, setEditing] = useState(false);
   const [receiving, setReceiving] = useState(false);
+  const [supplierReference, setSupplierReference] = useState("");
+  const [billing, setBilling] = useState(false);
+  const navigate = useNavigate();
   const key = ["purchase-orders", id];
   const { data } = useQuery({
     queryKey: key,
@@ -52,8 +65,18 @@ function PurchaseOrderPage() {
     onSuccess: () => setReceiving(false),
   });
 
+  const bill = useAction(
+    () => post<{ id: number }>(`/purchase-orders/${id}/bills`, { supplierReference }),
+    {
+      success: "Bill created",
+      invalidate: [...invalidate, ["bills"]],
+      onSuccess: ({ id: billId }) => navigate({ to: "/bills/$id", params: { id: String(billId) } }),
+    },
+  );
+
   if (!data) return null;
-  const { order, lines } = data;
+  const { order, lines, bills } = data;
+  const toBill = lines.some((l) => l.receivedQuantity > l.billedQuantity);
   const write = can("purchasing:write");
 
   if (editing) {
@@ -77,6 +100,7 @@ function PurchaseOrderPage() {
             orderDate: order.orderDate,
             dueDate: order.expectedDate ?? "",
             taxRate: 0,
+            validUntil: "",
             note: order.note ?? "",
             lines: lines.map((l) => ({
               productId: l.productId,
@@ -118,6 +142,11 @@ function PurchaseOrderPage() {
             {(write || can("inventory:write")) && order.status === "CONFIRMED" && (
               <Button onClick={() => setReceiving(true)}>
                 <PackageCheck /> Receive goods
+              </Button>
+            )}
+            {(write || can("accounting:write")) && toBill && (
+              <Button onClick={() => setBilling(true)}>
+                <FileText /> Enter bill
               </Button>
             )}
             {write && (order.status === "DRAFT" || order.status === "CONFIRMED") && (
@@ -170,6 +199,51 @@ function PurchaseOrderPage() {
           },
         ]}
       />
+      {bills.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Supplier bills</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {bills.map((b) => (
+              <Link
+                key={b.id}
+                to="/bills/$id"
+                params={{ id: String(b.id) }}
+                className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent"
+              >
+                <span className="font-medium">{b.number}</span>
+                <span className="text-muted-foreground">{fmtDate(b.billDate)}</span>
+                <StatusBadge status={b.status} />
+                <span className="tabular-nums">{fmtMoney(b.total)}</span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+      <Dialog open={billing} onOpenChange={setBilling}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter supplier bill</DialogTitle>
+            <DialogDescription>
+              Bills everything received but not yet billed, at the order prices. Due date follows
+              the supplier's payment terms.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label className="mb-1.5">Supplier's invoice number</Label>
+            <Input
+              value={supplierReference}
+              onChange={(e) => setSupplierReference(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => bill.mutate(undefined)} disabled={bill.isPending}>
+              Create bill
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <QuantityDialog
         title="Receive goods"
         description="Received quantities go into stock and are booked to accounts payable."

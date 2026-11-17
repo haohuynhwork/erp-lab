@@ -8,11 +8,12 @@ import org.springframework.web.bind.annotation.*;
 
 import com.erplab.common.http.PageResult;
 import com.erplab.purchasing.application.command.PurchasingCommandHandler;
+import com.erplab.purchasing.application.command.PurchasingCommands.CreateBill;
 import com.erplab.purchasing.application.command.PurchasingCommands.ReceiveGoods;
 import com.erplab.purchasing.application.command.PurchasingCommands.SavePurchaseOrder;
 import com.erplab.purchasing.application.query.PurchasingQueries;
-import com.erplab.purchasing.application.query.PurchasingQueries.OrderDetail;
-import com.erplab.purchasing.application.query.PurchasingQueries.OrderView;
+import com.erplab.purchasing.application.query.PurchasingQueries.PurchaseOrderDetail;
+import com.erplab.purchasing.application.query.PurchasingQueries.PurchaseOrderView;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -35,14 +36,14 @@ class PurchaseOrderController {
 	}
 
 	@GetMapping
-	PageResult<OrderView> list(@RequestParam(required = false) String q, @RequestParam(required = false) String status,
+	PageResult<PurchaseOrderView> list(@RequestParam(required = false) String q, @RequestParam(required = false) String status,
 			@RequestParam(required = false) Long supplierId, @RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "50") int size) {
 		return queries.list(q, status, supplierId, page, size);
 	}
 
 	@GetMapping("/{id}")
-	OrderDetail get(@PathVariable Long id) {
+	PurchaseOrderDetail get(@PathVariable Long id) {
 		return queries.get(id);
 	}
 
@@ -55,21 +56,21 @@ class PurchaseOrderController {
 
 	@PutMapping("/{id}")
 	@PreAuthorize(WRITE)
-	OrderDetail update(@PathVariable Long id, @Valid @RequestBody SavePurchaseOrder cmd) {
+	PurchaseOrderDetail update(@PathVariable Long id, @Valid @RequestBody SavePurchaseOrder cmd) {
 		commands.update(id, cmd);
 		return queries.get(id);
 	}
 
 	@PostMapping("/{id}/confirm")
 	@PreAuthorize(WRITE)
-	OrderDetail confirm(@PathVariable Long id) {
+	PurchaseOrderDetail confirm(@PathVariable Long id) {
 		commands.confirm(id);
 		return queries.get(id);
 	}
 
 	@PostMapping("/{id}/cancel")
 	@PreAuthorize(WRITE)
-	OrderDetail cancel(@PathVariable Long id) {
+	PurchaseOrderDetail cancel(@PathVariable Long id) {
 		commands.cancel(id);
 		return queries.get(id);
 	}
@@ -77,9 +78,16 @@ class PurchaseOrderController {
 	/** Goods receipt: stock goes up, accounting books inventory against accounts payable. */
 	@PostMapping("/{id}/receipts")
 	@PreAuthorize("hasAuthority('purchasing:write') or hasAuthority('inventory:write')")
-	OrderDetail receive(@PathVariable Long id, @Valid @RequestBody ReceiveGoods cmd) {
+	PurchaseOrderDetail receive(@PathVariable Long id, @Valid @RequestBody ReceiveGoods cmd) {
 		commands.receive(id, cmd);
 		return queries.get(id);
+	}
+
+	@PostMapping("/{id}/bills")
+	@ResponseStatus(HttpStatus.CREATED)
+	@PreAuthorize("hasAuthority('purchasing:write') or hasAuthority('accounting:write')")
+	Map<String, Long> bill(@PathVariable Long id, @RequestBody(required = false) CreateBill cmd) {
+		return Map.of("id", commands.bill(id, cmd != null ? cmd : new CreateBill(null, null)));
 	}
 
 }

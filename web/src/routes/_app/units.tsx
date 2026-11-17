@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CrudPage } from "@/components/crud-page";
+import type { Schemas } from "@/lib/schemas";
 
 export const Route = createFileRoute("/_app/units")({ component: Units });
 
-type Unit = { id: number; code: string; name: string };
+type Unit = Schemas["UnitView"];
 
 function Units() {
   return (

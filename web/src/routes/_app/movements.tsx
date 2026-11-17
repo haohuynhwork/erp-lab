@@ -7,23 +7,11 @@ import { PageHeader } from "@/components/page-header";
 import { StatusTabs } from "@/components/status-tabs";
 import { api, type Page, qs } from "@/lib/api";
 import { fmtDateTime, fmtMoney, fmtQty } from "@/lib/format";
+import type { Schemas } from "@/lib/schemas";
 
 export const Route = createFileRoute("/_app/movements")({ component: Movements });
 
-type Movement = {
-  id: number;
-  movedAt: string;
-  type: string;
-  sku: string;
-  productName: string;
-  warehouseCode: string;
-  quantity: number;
-  value: number;
-  refType: string | null;
-  refNumber: string | null;
-  note: string | null;
-  movedBy: string;
-};
+type Movement = Schemas["MovementView"];
 
 function Movements() {
   const [productId, setProductId] = useState<number | null>(null);

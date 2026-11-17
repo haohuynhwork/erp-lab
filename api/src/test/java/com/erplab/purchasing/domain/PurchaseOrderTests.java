@@ -62,4 +62,19 @@ class PurchaseOrderTests {
 			.hasMessageContaining("CONFIRMED");
 	}
 
+	@Test
+	void billsOnlyWhatWasReceived() {
+		var order = confirmedOrder();
+		assertThatThrownBy(() -> order.bill("BILL-1", "S-77", TODAY, 15)).isInstanceOf(DomainException.class);
+
+		order.receive(Map.of(100L, new BigDecimal("4")), TODAY);
+		var bill = order.bill("BILL-1", "S-77", TODAY, 15);
+		assertThat(bill.getTotal()).isEqualByComparingTo("8.00");
+		assertThat(bill.getDueDate()).isEqualTo(TODAY.plusDays(15));
+
+		bill.registerPayment(new BigDecimal("8"), TODAY, "BANK", null);
+		assertThat(bill.getStatus()).isEqualTo(SupplierBill.Status.PAID);
+		assertThatThrownBy(() -> order.bill("BILL-2", null, TODAY, 15)).isInstanceOf(DomainException.class);
+	}
+
 }

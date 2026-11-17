@@ -17,6 +17,8 @@ import com.erplab.inventory.domain.*;
 import com.erplab.masterdata.MasterdataApi;
 import com.erplab.purchasing.GoodsReceived;
 import com.erplab.sales.DeliveryShipped;
+import com.erplab.sales.SalesOrderCancelled;
+import com.erplab.sales.SalesOrderConfirmed;
 
 /**
  * Changes stock. Purchasing receipts and sales deliveries arrive as events, handled synchronously in the
@@ -48,14 +50,14 @@ public class InventoryCommandHandler {
 		var item = item(cmd.productId(), cmd.warehouseId());
 		var value = item.receive(cmd.quantity(), cmd.unitCost());
 		record(item, MovementType.RECEIPT, cmd.quantity(), value, MANUAL, null, null, cmd.note());
-		valueChanged(Reason.MANUAL_RECEIPT, value, MANUAL, null, null);
+		valueChanged(Reason.MANUAL_RECEIPT, value, MANUAL, null, null, cmd.date());
 	}
 
 	public void handle(IssueStock cmd) {
 		var item = item(cmd.productId(), cmd.warehouseId());
 		var value = item.issue(cmd.quantity());
 		record(item, MovementType.ISSUE, cmd.quantity().negate(), value.negate(), MANUAL, null, null, cmd.note());
-		valueChanged(Reason.MANUAL_ISSUE, value.negate(), MANUAL, null, null);
+		valueChanged(Reason.MANUAL_ISSUE, value.negate(), MANUAL, null, null, cmd.date());
 	}
 
 	public void handle(TransferStock cmd) {
@@ -81,7 +83,7 @@ public class InventoryCommandHandler {
 			return;
 		}
 		record(item, MovementType.ADJUSTMENT, delta, value, "COUNT", null, null, cmd.note());
-		valueChanged(Reason.ADJUSTMENT, value, "COUNT", null, null);
+		valueChanged(Reason.ADJUSTMENT, value, "COUNT", null, null, cmd.date());
 	}
 
 	@EventListener
@@ -98,6 +100,24 @@ public class InventoryCommandHandler {
 	}
 
 	@EventListener
+	public void on(SalesOrderConfirmed e) {
+		for (var line : e.lines()) {
+			if (masterdata.product(line.productId()).stocked()) {
+				item(line.productId(), e.warehouseId()).reserve(line.quantity());
+			}
+		}
+	}
+
+	@EventListener
+	public void on(SalesOrderCancelled e) {
+		for (var line : e.lines()) {
+			if (masterdata.product(line.productId()).stocked()) {
+				item(line.productId(), e.warehouseId()).release(line.quantity());
+			}
+		}
+	}
+
+	@EventListener
 	public void on(DeliveryShipped e) {
 		var total = BigDecimal.ZERO;
 		for (var line : e.lines()) {
@@ -105,13 +125,15 @@ public class InventoryCommandHandler {
 				continue;
 			}
 			var item = item(line.productId(), e.warehouseId());
+			item.release(line.quantity());
 			var value = item.issue(line.quantity());
 			record(item, MovementType.ISSUE, line.quantity().negate(), value.negate(), "SALES_ORDER", e.salesOrderId(),
 					e.salesOrderNumber(), null);
 			total = total.add(value);
 		}
 		if (total.signum() != 0) {
-			valueChanged(Reason.SALES_ISSUE, total.negate(), "SALES_ORDER", e.salesOrderId(), e.salesOrderNumber());
+			events.publishEvent(new StockValueChanged(Reason.SALES_ISSUE, total.negate(), "SALES_ORDER", e.salesOrderId(),
+					e.salesOrderNumber(), e.date()));
 		}
 	}
 
@@ -132,8 +154,10 @@ public class InventoryCommandHandler {
 		movements.save(new StockMovement(item, type, qty, value, refType, refId, refNumber, note, CurrentUser.username()));
 	}
 
-	private void valueChanged(Reason reason, BigDecimal amount, String refType, Long refId, String refNumber) {
-		events.publishEvent(new StockValueChanged(reason, amount, refType, refId, refNumber, LocalDate.now()));
+	private void valueChanged(Reason reason, BigDecimal amount, String refType, Long refId, String refNumber,
+			LocalDate date) {
+		events.publishEvent(new StockValueChanged(reason, amount, refType, refId, refNumber,
+				date != null ? date : LocalDate.now()));
 	}
 
 }

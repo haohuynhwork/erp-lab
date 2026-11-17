@@ -19,30 +19,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, type Page, post, qs } from "@/lib/api";
 import { fmtDate, fmtMoney, today } from "@/lib/format";
+import type { Schemas } from "@/lib/schemas";
 import { useCan } from "@/lib/session";
 import { useAction } from "@/lib/use-action";
 
 export const Route = createFileRoute("/_app/journal")({ component: Journal });
 
-type Entry = {
-  id: number;
-  number: string;
-  entryDate: string;
-  description: string;
-  sourceType: string;
-  sourceNumber: string | null;
-  amount: number;
-  reversed: boolean;
-  reversalOfId: number | null;
-};
-type Line = {
-  accountCode: string;
-  accountName: string;
-  partnerName: string | null;
-  debit: number;
-  credit: number;
-  memo: string | null;
-};
+type Entry = Schemas["JournalEntryView"];
+type Line = Schemas["JournalLineView"];
 type AccountOption = { id: number; code: string; name: string };
 
 function Journal() {

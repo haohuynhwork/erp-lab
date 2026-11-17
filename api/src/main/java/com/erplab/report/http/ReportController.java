@@ -14,7 +14,7 @@ import com.erplab.report.application.DashboardQueries;
 import com.erplab.report.application.DashboardQueries.Dashboard;
 import com.erplab.report.application.ExcelExports;
 import com.erplab.report.application.ExcelExports.Report;
-import com.erplab.report.application.InvoicePdf;
+import com.erplab.report.application.SalesPdfs;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -30,12 +30,12 @@ class ReportController {
 
 	private final ExcelExports excel;
 
-	private final InvoicePdf invoicePdf;
+	private final SalesPdfs pdfs;
 
-	ReportController(DashboardQueries dashboard, ExcelExports excel, InvoicePdf invoicePdf) {
+	ReportController(DashboardQueries dashboard, ExcelExports excel, SalesPdfs pdfs) {
 		this.dashboard = dashboard;
 		this.excel = excel;
-		this.invoicePdf = invoicePdf;
+		this.pdfs = pdfs;
 	}
 
 	@GetMapping("/dashboard")
@@ -58,7 +58,16 @@ class ReportController {
 	@GetMapping("/invoices/{id}.pdf")
 	@PreAuthorize("hasAuthority('sales:read') or hasAuthority('accounting:read')")
 	ResponseEntity<byte[]> invoicePdf(@PathVariable Long id) {
-		return file(invoicePdf.render(id), invoicePdf.fileName(id), MediaType.APPLICATION_PDF);
+		var pdf = pdfs.invoice(id);
+		return file(pdf.content(), pdf.fileName(), MediaType.APPLICATION_PDF);
+	}
+
+	/** Quotation while the order is a draft, order confirmation afterwards. */
+	@GetMapping("/sales-orders/{id}.pdf")
+	@PreAuthorize("hasAuthority('sales:read')")
+	ResponseEntity<byte[]> salesOrderPdf(@PathVariable Long id) {
+		var pdf = pdfs.salesOrder(id);
+		return file(pdf.content(), pdf.fileName(), MediaType.APPLICATION_PDF);
 	}
 
 	private static ResponseEntity<byte[]> file(byte[] body, String name, MediaType type) {

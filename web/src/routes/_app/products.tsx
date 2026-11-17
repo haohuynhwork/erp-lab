@@ -11,24 +11,11 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { fmtMoney, fmtQty } from "@/lib/format";
+import type { Schemas } from "@/lib/schemas";
 
 export const Route = createFileRoute("/_app/products")({ component: Products });
 
-type Product = {
-  id: number;
-  sku: string;
-  name: string;
-  type: string;
-  unitId: number;
-  unitCode: string;
-  categoryId: number | null;
-  categoryName: string | null;
-  purchasePrice: number;
-  salePrice: number;
-  minStock: number;
-  active: boolean;
-  bom?: { componentId: number; quantity: number }[];
-};
+type Product = Schemas["ProductView"];
 
 const types = [
   { value: "RAW", label: "Raw material" },
@@ -141,9 +128,7 @@ function Products() {
         bom: [],
       }}
       loadValues={async (p) => {
-        const d = await api<{ product: Product; bom: { componentId: number; quantity: number }[] }>(
-          `/products/${p.id}`,
-        );
+        const d = await api<Schemas["ProductDetail"]>(`/products/${p.id}`);
         return {
           ...d.product,
           bom: d.bom.map((l) => ({ componentId: l.componentId, quantity: l.quantity })),

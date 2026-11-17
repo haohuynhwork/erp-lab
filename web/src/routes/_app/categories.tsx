@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CrudPage } from "@/components/crud-page";
+import type { Schemas } from "@/lib/schemas";
 
 export const Route = createFileRoute("/_app/categories")({ component: Categories });
 
-type Category = { id: number; name: string; description: string | null };
+type Category = Schemas["CategoryView"];
 
 function Categories() {
   return (

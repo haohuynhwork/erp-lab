@@ -62,7 +62,7 @@ class AccountingController {
 	}
 
 	@GetMapping("/journal-entries")
-	PageResult<EntryView> entries(@RequestParam(required = false) String q,
+	PageResult<JournalEntryView> entries(@RequestParam(required = false) String q,
 			@RequestParam(required = false) String sourceType, @RequestParam(required = false) Long accountId,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -71,7 +71,7 @@ class AccountingController {
 	}
 
 	@GetMapping("/journal-entries/{id}")
-	EntryDetail entry(@PathVariable Long id) {
+	JournalEntryDetail entry(@PathVariable Long id) {
 		return queries.entry(id);
 	}
 
@@ -95,17 +95,17 @@ class AccountingController {
 		return queries.partnerBalances(kind);
 	}
 
-	@GetMapping("/supplier-payments")
-	PageResult<PaymentView> supplierPayments(@RequestParam(required = false) Long supplierId,
-			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
-		return queries.supplierPayments(supplierId, page, size);
+	@GetMapping("/profit-and-loss")
+	ProfitAndLoss profitAndLoss(
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+		return queries.profitAndLoss(from, to);
 	}
 
-	@PostMapping("/supplier-payments")
-	@ResponseStatus(HttpStatus.CREATED)
-	@PreAuthorize(WRITE)
-	Map<String, Long> paySupplier(@Valid @RequestBody PaySupplier cmd) {
-		return Map.of("id", commands.paySupplier(cmd));
+	@GetMapping("/balance-sheet")
+	BalanceSheet balanceSheet(
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
+		return queries.balanceSheet(asOf != null ? asOf : LocalDate.now());
 	}
 
 }

@@ -5,31 +5,12 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { fmtMoney, fmtQty } from "@/lib/format";
+import type { Schemas } from "@/lib/schemas";
 import { useCan } from "@/lib/session";
 
 export const Route = createFileRoute("/_app/")({ component: Dashboard });
 
-type Dashboard = {
-  kpis: {
-    salesThisMonth: number;
-    salesLastMonth: number;
-    openSalesOrders: number;
-    openPurchaseOrders: number;
-    receivable: number;
-    overdueReceivable: number;
-    payable: number;
-    inventoryValue: number;
-    lowStockItems: number;
-  };
-  months: { month: string; sales: number; purchases: number; grossProfit: number }[];
-  topProducts: {
-    productId: number;
-    sku: string;
-    name: string;
-    quantity: number;
-    revenue: number;
-  }[];
-};
+type Dashboard = Schemas["Dashboard"];
 
 // Chart colors from the theme (docs/theme.css chart-1..3).
 const css = (v: string) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();

@@ -13,7 +13,7 @@ import com.erplab.common.domain.NotFoundException;
 import com.erplab.common.infrastructure.DocumentNumbers;
 import com.erplab.masterdata.MasterdataApi;
 import com.erplab.sales.application.command.SalesCommands.*;
-import com.erplab.sales.domain.Invoice;
+import com.erplab.sales.domain.CreditNoteRepository;
 import com.erplab.sales.domain.InvoiceRepository;
 import com.erplab.sales.domain.SalesOrder;
 import com.erplab.sales.domain.SalesOrderRepository;
@@ -26,14 +26,17 @@ public class SalesCommandHandler {
 
 	private final InvoiceRepository invoices;
 
+	private final CreditNoteRepository creditNotes;
+
 	private final MasterdataApi masterdata;
 
 	private final DocumentNumbers numbers;
 
 	private final ApplicationEventPublisher events;
 
-	SalesCommandHandler(SalesOrderRepository orders, InvoiceRepository invoices, MasterdataApi masterdata,
-			DocumentNumbers numbers, ApplicationEventPublisher events) {
+	SalesCommandHandler(SalesOrderRepository orders, InvoiceRepository invoices, CreditNoteRepository creditNotes,
+			MasterdataApi masterdata, DocumentNumbers numbers, ApplicationEventPublisher events) {
+		this.creditNotes = creditNotes;
 		this.orders = orders;
 		this.invoices = invoices;
 		this.masterdata = masterdata;
@@ -66,16 +69,17 @@ public class SalesCommandHandler {
 			return new SalesOrder.LineInput(l.productId(), l.quantity(),
 					l.unitPrice() != null ? l.unitPrice() : product.salePrice());
 		}).toList();
-		order.edit(cmd.customerId(), cmd.warehouseId(), cmd.orderDate(), cmd.deliveryDate(), cmd.taxRate(), cmd.note(),
-				lines);
+		order.edit(cmd.customerId(), cmd.warehouseId(), cmd.orderDate(), cmd.deliveryDate(), cmd.validUntil(),
+				cmd.taxRate(), cmd.note(), lines);
 	}
 
+	/** Publishes SalesOrderConfirmed; inventory reserves the quantities. */
 	public void confirm(Long id) {
-		load(id).confirm();
+		events.publishEvent(load(id).confirm());
 	}
 
 	public void cancel(Long id) {
-		load(id).cancel();
+		load(id).cancel().ifPresent(events::publishEvent);
 	}
 
 	/** Publishes DeliveryShipped; inventory issues the stock in this transaction (fails if not enough). */
@@ -99,6 +103,17 @@ public class SalesCommandHandler {
 		var invoice = invoices.findById(invoiceId).orElseThrow(() -> new NotFoundException("Invoice", invoiceId));
 		events.publishEvent(invoice.registerPayment(cmd.amount(), cmd.date() != null ? cmd.date() : LocalDate.now(),
 				cmd.method(), cmd.reference()));
+	}
+
+	/** @return the new credit note id */
+	public Long credit(Long invoiceId, CreateCreditNote cmd) {
+		var invoice = invoices.findById(invoiceId).orElseThrow(() -> new NotFoundException("Invoice", invoiceId));
+		var quantities = new LinkedHashMap<Integer, BigDecimal>();
+		cmd.lines().forEach(l -> quantities.merge(l.position(), l.quantity(), BigDecimal::add));
+		var note = creditNotes.save(invoice.credit(numbers.next("CN", "credit_note_number_seq"),
+				cmd.date() != null ? cmd.date() : LocalDate.now(), cmd.reason(), quantities));
+		events.publishEvent(note.issued());
+		return note.getId();
 	}
 
 	private SalesOrder load(Long id) {

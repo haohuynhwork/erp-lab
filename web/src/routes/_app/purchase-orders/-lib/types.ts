@@ -1,25 +1,5 @@
-export type PurchaseOrder = {
-  id: number;
-  number: string;
-  supplierId: number;
-  supplierName: string;
-  warehouseId: number;
-  warehouseCode: string;
-  orderDate: string;
-  expectedDate: string | null;
-  status: string;
-  total: number;
-  note: string | null;
-};
+import type { Schemas } from "@/lib/schemas";
 
-export type PurchaseOrderLine = {
-  id: number;
-  productId: number;
-  sku: string;
-  productName: string;
-  unitCode: string;
-  quantity: number;
-  unitPrice: number;
-  amount: number;
-  receivedQuantity: number;
-};
+export type PurchaseOrder = Schemas["PurchaseOrderView"];
+export type PurchaseOrderLine = Schemas["PurchaseOrderLineView"];
+export type BillRef = Schemas["BillRef"];

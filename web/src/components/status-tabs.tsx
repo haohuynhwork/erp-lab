@@ -5,10 +5,12 @@ export function StatusTabs({
   value,
   onChange,
   statuses = ["DRAFT", "CONFIRMED", "DONE", "CANCELLED"],
+  labels = {},
 }: {
   value: string;
   onChange: (v: string) => void;
   statuses?: string[];
+  labels?: Record<string, string>;
 }) {
   return (
     <Tabs value={value} onValueChange={onChange}>
@@ -16,7 +18,7 @@ export function StatusTabs({
         <TabsTrigger value="all">All</TabsTrigger>
         {statuses.map((s) => (
           <TabsTrigger key={s} value={s}>
-            {s.replace("_", " ").toLowerCase()}
+            {labels[s] ?? s.replace("_", " ").toLowerCase()}
           </TabsTrigger>
         ))}
       </TabsList>

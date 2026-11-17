@@ -1,37 +1,5 @@
-export type SalesOrder = {
-  id: number;
-  number: string;
-  customerId: number;
-  customerName: string;
-  warehouseId: number;
-  warehouseCode: string;
-  orderDate: string;
-  deliveryDate: string | null;
-  status: string;
-  taxRate: number;
-  subtotal: number;
-  taxAmount: number;
-  total: number;
-  note: string | null;
-};
+import type { Schemas } from "@/lib/schemas";
 
-export type SalesOrderLine = {
-  id: number;
-  productId: number;
-  sku: string;
-  productName: string;
-  unitCode: string;
-  quantity: number;
-  unitPrice: number;
-  amount: number;
-  deliveredQuantity: number;
-  invoicedQuantity: number;
-};
-
-export type InvoiceRef = {
-  id: number;
-  number: string;
-  issueDate: string;
-  total: number;
-  status: string;
-};
+export type SalesOrder = Schemas["SalesOrderView"];
+export type SalesOrderLine = Schemas["SalesOrderLineView"];
+export type InvoiceRef = Schemas["InvoiceRef"];

@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Banknote, Download } from "lucide-react";
+import { ArrowLeft, Banknote, Download, ReceiptText } from "lucide-react";
 import { useState } from "react";
 import { DataTable } from "@/components/data-table";
 import { Info } from "@/components/info";
 import { PageHeader } from "@/components/page-header";
+import { PaymentDialog } from "@/components/payment-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,53 +19,34 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { api, download, post } from "@/lib/api";
 import { fmtDate, fmtMoney, fmtQty, today } from "@/lib/format";
 import { useCan } from "@/lib/session";
 import { useAction } from "@/lib/use-action";
-import type { Invoice } from "./-lib/types";
+import type { InvoiceDetail } from "./-lib/types";
 
 export const Route = createFileRoute("/_app/invoices/$id")({ component: InvoicePage });
 
-type Detail = {
-  invoice: Invoice;
-  lines: {
-    productId: number;
-    sku: string;
-    productName: string;
-    unitCode: string;
-    quantity: number;
-    unitPrice: number;
-    amount: number;
-  }[];
-  payments: {
-    id: number;
-    paymentDate: string;
-    amount: number;
-    method: string;
-    reference: string | null;
-  }[];
-};
+const invalidate = [["invoices"], ["sales-orders"], ["dashboard"], ["balances"]];
 
 function InvoicePage() {
   const { id } = Route.useParams();
   const can = useCan();
   const [paying, setPaying] = useState(false);
+  const [crediting, setCrediting] = useState(false);
   const { data } = useQuery({
     queryKey: ["invoices", id],
-    queryFn: () => api<Detail>(`/invoices/${id}`),
+    queryFn: () => api<InvoiceDetail>(`/invoices/${id}`),
+  });
+  const pay = useAction((body: unknown) => post(`/invoices/${id}/payments`, body), {
+    success: "Payment recorded",
+    invalidate,
+    onSuccess: () => setPaying(false),
   });
 
   if (!data) return null;
-  const { invoice: inv, lines, payments } = data;
-  const canPay = (can("sales:write") || can("accounting:write")) && inv.balance > 0;
+  const { invoice: inv, lines, payments, creditNotes } = data;
+  const write = can("sales:write") || can("accounting:write");
 
   return (
     <div className="space-y-4">
@@ -96,7 +78,12 @@ function InvoicePage() {
             <Button variant="outline" onClick={() => download(`/reports/invoices/${inv.id}.pdf`)}>
               <Download /> PDF
             </Button>
-            {canPay && (
+            {write && inv.balance > 0 && (
+              <Button variant="outline" onClick={() => setCrediting(true)}>
+                <ReceiptText /> Credit note
+              </Button>
+            )}
+            {write && inv.balance > 0 && (
               <Button onClick={() => setPaying(true)}>
                 <Banknote /> Record payment
               </Button>
@@ -105,12 +92,14 @@ function InvoicePage() {
         }
       />
       <Card>
-        <CardContent className="grid gap-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
+        <CardContent className="grid gap-4 text-sm sm:grid-cols-4 lg:grid-cols-8">
           <Info label="Issued" value={fmtDate(inv.issueDate)} />
           <Info label="Due" value={fmtDate(inv.dueDate)} />
           <Info label="Subtotal" value={fmtMoney(inv.subtotal)} />
           <Info label={`VAT ${inv.taxRate}%`} value={fmtMoney(inv.taxAmount)} />
           <Info label="Total" value={fmtMoney(inv.total)} />
+          <Info label="Paid" value={fmtMoney(inv.paidAmount)} />
+          <Info label="Credited" value={fmtMoney(inv.creditedAmount)} />
           <Info label="Balance due" value={fmtMoney(inv.balance)} />
         </CardContent>
       </Card>
@@ -126,6 +115,12 @@ function InvoicePage() {
             cell: ({ row }) => `${fmtQty(row.original.quantity)} ${row.original.unitCode ?? ""}`,
           },
           {
+            accessorKey: "creditedQuantity",
+            header: "Credited",
+            meta: { align: "right" },
+            cell: ({ getValue }) => (getValue() ? fmtQty(getValue()) : ""),
+          },
+          {
             accessorKey: "unitPrice",
             header: "Unit price",
             meta: { align: "right" },
@@ -139,106 +134,140 @@ function InvoicePage() {
           },
         ]}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle>Payments</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {payments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No payments yet</p>
-          ) : (
-            <div className="space-y-1 text-sm">
-              {payments.map((p) => (
-                <div key={p.id} className="flex justify-between gap-4">
-                  <span>{fmtDate(p.paymentDate)}</span>
-                  <span className="text-muted-foreground">
-                    {p.method}
-                    {p.reference ? ` · ${p.reference}` : ""}
-                  </span>
-                  <span className="tabular-nums">{fmtMoney(p.amount)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      <PaymentDialog invoice={inv} open={paying} onOpenChange={setPaying} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Payments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {payments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No payments yet</p>
+            ) : (
+              <div className="space-y-1 text-sm">
+                {payments.map((p) => (
+                  <div key={p.id} className="flex justify-between gap-4">
+                    <span>{fmtDate(p.paymentDate)}</span>
+                    <span className="text-muted-foreground">
+                      {p.method}
+                      {p.reference ? ` · ${p.reference}` : ""}
+                    </span>
+                    <span className="tabular-nums">{fmtMoney(p.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Credit notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {creditNotes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">None</p>
+            ) : (
+              <div className="space-y-1 text-sm">
+                {creditNotes.map((n) => (
+                  <div key={n.id} className="flex justify-between gap-4">
+                    <span className="font-medium">{n.number}</span>
+                    <span>{fmtDate(n.issueDate)}</span>
+                    <span className="truncate text-muted-foreground">{n.reason}</span>
+                    <span className="tabular-nums">{fmtMoney(n.total)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      {paying && (
+        <PaymentDialog
+          title="Record customer payment"
+          description="Booked as cash against receivables."
+          balance={inv.balance}
+          open
+          onOpenChange={setPaying}
+          busy={pay.isPending}
+          onSubmit={(p) => pay.mutate(p)}
+        />
+      )}
+      {crediting && <CreditNoteDialog detail={data} onClose={() => setCrediting(false)} />}
     </div>
   );
 }
 
-function PaymentDialog({
-  invoice,
-  open,
-  onOpenChange,
-}: {
-  invoice: Invoice;
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-}) {
-  const [amount, setAmount] = useState<number>(invoice.balance);
+function CreditNoteDialog({ detail, onClose }: { detail: InvoiceDetail; onClose: () => void }) {
+  const { invoice, lines } = detail;
+  const [qty, setQty] = useState<Record<number, number>>({});
+  const [reason, setReason] = useState("");
   const [date, setDate] = useState(today());
-  const [method, setMethod] = useState("BANK");
-  const [reference, setReference] = useState("");
-  const pay = useAction(
+  const subtotal = lines.reduce((s, l) => s + (qty[l.position] ?? 0) * l.unitPrice, 0);
+  const total = subtotal + Math.round(subtotal * invoice.taxRate) / 100;
+  const credit = useAction(
     () =>
-      post(`/invoices/${invoice.id}/payments`, {
-        amount,
+      post(`/invoices/${invoice.id}/credit-notes`, {
         date,
-        method,
-        reference: reference || null,
+        reason,
+        lines: Object.entries(qty)
+          .filter(([, q]) => q > 0)
+          .map(([position, quantity]) => ({ position: Number(position), quantity })),
       }),
-    {
-      success: "Payment recorded",
-      invalidate: [["invoices"], ["sales-orders"], ["dashboard"]],
-      onSuccess: () => onOpenChange(false),
-    },
+    { success: "Credit note issued", invalidate, onSuccess: onClose },
   );
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Record payment</DialogTitle>
+          <DialogTitle>Credit note for {invoice.number}</DialogTitle>
           <DialogDescription>
-            Open balance {fmtMoney(invoice.balance)}. Booked as cash against receivables.
+            Credits invoiced quantities (price correction, rejected goods) up to the unpaid balance
+            of {fmtMoney(invoice.balance)}. Booked against revenue and VAT.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label className="mb-1.5">Amount</Label>
-            <Input
-              type="number"
-              step="any"
-              min={0}
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-            />
+        <div className="space-y-3">
+          {lines.map((l) => {
+            const left = l.quantity - l.creditedQuantity;
+            return (
+              <div key={l.position} className="flex items-center gap-3">
+                <div className="min-w-0 flex-1 text-sm">
+                  <div className="truncate font-medium">{l.productName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {fmtQty(left)} creditable · {fmtMoney(l.unitPrice)} each
+                  </div>
+                </div>
+                <Input
+                  type="number"
+                  step="any"
+                  min={0}
+                  max={left}
+                  disabled={left <= 0}
+                  className="w-28 text-right"
+                  value={qty[l.position] ?? ""}
+                  onChange={(e) => setQty({ ...qty, [l.position]: Number(e.target.value) })}
+                />
+              </div>
+            );
+          })}
+          <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+            <div>
+              <Label className="mb-1.5">Date</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div>
+              <Label className="mb-1.5">Reason *</Label>
+              <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
           </div>
-          <div>
-            <Label className="mb-1.5">Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          <div>
-            <Label className="mb-1.5">Method</Label>
-            <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BANK">Bank transfer</SelectItem>
-                <SelectItem value="CASH">Cash</SelectItem>
-                <SelectItem value="CARD">Card</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="mb-1.5">Reference</Label>
-            <Input value={reference} onChange={(e) => setReference(e.target.value)} />
+          <div className="text-right text-sm">
+            Credit incl. VAT: <span className="font-semibold tabular-nums">{fmtMoney(total)}</span>
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={() => pay.mutate(undefined)} disabled={pay.isPending || amount <= 0}>
-            {pay.isPending ? "Saving…" : "Record payment"}
+          <Button
+            disabled={credit.isPending || !reason || subtotal <= 0}
+            onClick={() => credit.mutate(undefined)}
+          >
+            Issue credit note
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -61,7 +61,7 @@ ERP first (phases 1–5), then MES (6–10).
 - [x] Master data: products (types, BOM), units, categories, warehouses, partners (customer / supplier / both)
 - [x] API foundation: `WEB_URL` / `API_URL` config (prefixes inferred), REST `/api/v1`, GraphQL endpoint, Swagger UI / OpenAPI, CORS
 - [x] Web shell: login, token refresh, layout, menu and page access by permission, CRUD pages
-- [ ] Generated API types (openapi-typescript)
+- [x] Generated API types (`pnpm gen:api`, openapi-typescript)
 
 ### Phase 2 – Inventory & Purchasing ✅
 
@@ -74,7 +74,8 @@ ERP first (phases 1–5), then MES (6–10).
 
 - [x] Sales order (VAT) → partial deliveries → invoice of delivered quantities → customer payments
 - [x] Stock decrease via `DeliveryShipped`, fails as a whole when stock is short
-- [ ] Quotations, stock reservation on confirm
+- [x] Quotations (draft orders with valid-until date and PDF), stock reservation on confirm
+- [x] Credit notes against invoices
 - [ ] Sales order can trigger a production order (with MES)
 
 ### Phase 4 – Accounting ✅
@@ -83,7 +84,9 @@ ERP first (phases 1–5), then MES (6–10).
 - [x] Auto journal entries from goods receipt, delivery (COGS), invoice (revenue + VAT), payments, stock adjustments
 - [x] Receivables / payables per partner, supplier payments, manual entries, reversals
 - [x] Trial balance
-- [ ] Simple P&L / balance sheet, VAS chart (Circular 200/133)
+- [x] Profit and loss, balance sheet
+- [x] Supplier bills matched to receipts, bill payments (replace free-standing supplier payments)
+- [ ] VAS chart (Circular 200/133)
 
 ### Phase 5 – Reports ✅
 
@@ -128,8 +131,8 @@ ERP first (phases 1–5), then MES (6–10).
 
 ### Phase 11 – Polish
 
-- [x] Integration test with Testcontainers (context + migrations), domain unit tests
-- [ ] Seed demo data (`make seed`)
+- [x] Testcontainers: context + migrations, HTTP flow test (purchase → cash, ledger checks); domain unit tests
+- [x] Seed demo data (`make seed`), audit log, CI (GitHub Actions)
 - [ ] `compose.prod.yaml`, Dockerfiles, architecture diagram, demo video
 - [ ] Optional: deploy to a VPS
 

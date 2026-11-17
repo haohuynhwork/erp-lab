@@ -27,23 +27,32 @@ public class AccountingQueries {
 			BigDecimal totalCredit) {
 	}
 
-	public record EntryView(Long id, String number, LocalDate entryDate, String description, String sourceType,
+	public record JournalEntryView(Long id, String number, LocalDate entryDate, String description, String sourceType,
 			Long sourceId, String sourceNumber, BigDecimal amount, boolean reversed, Long reversalOfId) {
 	}
 
-	public record LineView(Long accountId, String accountCode, String accountName, Long partnerId, String partnerName,
+	public record JournalLineView(Long accountId, String accountCode, String accountName, Long partnerId, String partnerName,
 			BigDecimal debit, BigDecimal credit, String memo) {
 	}
 
-	public record EntryDetail(EntryView entry, List<LineView> lines) {
+	public record JournalEntryDetail(JournalEntryView entry, List<JournalLineView> lines) {
 	}
 
 	/** Open receivable (customers) or payable (suppliers) per partner. */
 	public record PartnerBalance(Long partnerId, String code, String name, BigDecimal balance) {
 	}
 
-	public record PaymentView(Long id, String number, Long supplierId, String supplierName, LocalDate paymentDate,
-			BigDecimal amount, String method, String reference) {
+	/** One account's amount in a statement, positive on its normal side. */
+	public record StatementLine(Long accountId, String code, String name, BigDecimal amount) {
+	}
+
+	public record ProfitAndLoss(LocalDate from, LocalDate to, List<StatementLine> revenue, BigDecimal totalRevenue,
+			List<StatementLine> expenses, BigDecimal totalExpenses, BigDecimal netProfit) {
+	}
+
+	public record BalanceSheet(LocalDate asOf, List<StatementLine> assets, BigDecimal totalAssets,
+			List<StatementLine> liabilities, BigDecimal totalLiabilities, List<StatementLine> equity,
+			BigDecimal currentEarnings, BigDecimal totalEquity, boolean balanced) {
 	}
 
 	private static final String ENTRY_COLUMNS = """
@@ -86,7 +95,7 @@ public class AccountingQueries {
 		return new TrialBalance(from, to, rows, debit, credit);
 	}
 
-	public PageResult<EntryView> entries(String q, String sourceType, Long accountId, LocalDate from, LocalDate to,
+	public PageResult<JournalEntryView> entries(String q, String sourceType, Long accountId, LocalDate from, LocalDate to,
 			int page, int size) {
 		return sql.query(ENTRY_COLUMNS, """
 				journal_entry e WHERE (e.number ILIKE :q OR e.description ILIKE :q OR coalesce(e.source_number, '') ILIKE :q)
@@ -96,13 +105,13 @@ public class AccountingQueries {
 				 AND (CAST(:from AS date) IS NULL OR e.entry_date >= :from)
 				 AND (CAST(:to AS date) IS NULL OR e.entry_date <= :to)""",
 				Params.of("q", SqlPage.like(q), "sourceType", sourceType, "accountId", accountId, "from", from, "to", to),
-				"e.id DESC", page, size, EntryView.class);
+				"e.id DESC", page, size, JournalEntryView.class);
 	}
 
-	public EntryDetail entry(Long id) {
+	public JournalEntryDetail entry(Long id) {
 		var entry = jdbc.sql("SELECT " + ENTRY_COLUMNS + " FROM journal_entry e WHERE e.id = :id")
 			.param("id", id)
-			.query(EntryView.class)
+			.query(JournalEntryView.class)
 			.optional()
 			.orElseThrow(() -> new NotFoundException("Journal entry", id));
 		var lines = jdbc.sql("""
@@ -111,9 +120,9 @@ public class AccountingQueries {
 				FROM journal_line l JOIN account a ON a.id = l.account_id LEFT JOIN partner p ON p.id = l.partner_id
 				WHERE l.journal_entry_id = :id ORDER BY l.position""")
 			.param("id", id)
-			.query(LineView.class)
+			.query(JournalLineView.class)
 			.list();
-		return new EntryDetail(entry, lines);
+		return new JournalEntryDetail(entry, lines);
 	}
 
 	/** @param kind "receivable" or "payable" */
@@ -131,13 +140,48 @@ public class AccountingQueries {
 			.list();
 	}
 
-	public PageResult<PaymentView> supplierPayments(Long supplierId, int page, int size) {
-		return sql.query("""
-				sp.id, sp.number, sp.supplier_id, p.name AS supplier_name, sp.payment_date, sp.amount, sp.method,
-				sp.reference""", """
-				supplier_payment sp JOIN partner p ON p.id = sp.supplier_id
-				WHERE (CAST(:supplierId AS bigint) IS NULL OR sp.supplier_id = :supplierId)""",
-				Params.of("supplierId", supplierId), "sp.id DESC", page, size, PaymentView.class);
+	/** Revenue and expenses posted between {@code from} and {@code to} (inclusive; null = open-ended). */
+	public ProfitAndLoss profitAndLoss(LocalDate from, LocalDate to) {
+		var revenue = statement("REVENUE", from, to);
+		var expenses = statement("EXPENSE", from, to);
+		var totalRevenue = sum(revenue);
+		var totalExpenses = sum(expenses);
+		return new ProfitAndLoss(from, to, revenue, totalRevenue, expenses, totalExpenses,
+				totalRevenue.subtract(totalExpenses));
+	}
+
+	/** Balances at {@code asOf}; profit not yet closed to equity shows as current earnings. */
+	public BalanceSheet balanceSheet(LocalDate asOf) {
+		var assets = statement("ASSET", null, asOf);
+		var liabilities = statement("LIABILITY", null, asOf);
+		var equity = statement("EQUITY", null, asOf);
+		var earnings = sum(statement("REVENUE", null, asOf)).subtract(sum(statement("EXPENSE", null, asOf)));
+		var totalAssets = sum(assets);
+		var totalLiabilities = sum(liabilities);
+		var totalEquity = sum(equity).add(earnings);
+		return new BalanceSheet(asOf, assets, totalAssets, liabilities, totalLiabilities, equity, earnings, totalEquity,
+				totalAssets.compareTo(totalLiabilities.add(totalEquity)) == 0);
+	}
+
+	private List<StatementLine> statement(String type, LocalDate from, LocalDate to) {
+		return jdbc.sql("""
+				SELECT a.id AS account_id, a.code, a.name,
+				       coalesce(sum(CASE WHEN a.type IN ('ASSET', 'EXPENSE') THEN l.debit - l.credit
+				                         ELSE l.credit - l.debit END), 0) AS amount
+				FROM account a
+				JOIN journal_line l ON l.account_id = a.id
+				JOIN journal_entry e ON e.id = l.journal_entry_id
+				WHERE a.type = :type
+				  AND (CAST(:from AS date) IS NULL OR e.entry_date >= :from)
+				  AND (CAST(:to AS date) IS NULL OR e.entry_date <= :to)
+				GROUP BY a.id HAVING sum(l.debit - l.credit) <> 0 ORDER BY a.code""")
+			.params(Params.of("type", type, "from", from, "to", to))
+			.query(StatementLine.class)
+			.list();
+	}
+
+	private static BigDecimal sum(List<StatementLine> lines) {
+		return lines.stream().map(StatementLine::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 }

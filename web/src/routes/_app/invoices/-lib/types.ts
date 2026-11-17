@@ -1,18 +1,4 @@
-export type Invoice = {
-  id: number;
-  number: string;
-  salesOrderId: number;
-  salesOrderNumber: string;
-  customerId: number;
-  customerName: string;
-  issueDate: string;
-  dueDate: string;
-  taxRate: number;
-  subtotal: number;
-  taxAmount: number;
-  total: number;
-  paidAmount: number;
-  balance: number;
-  status: string;
-  overdue: boolean;
-};
+import type { Schemas } from "@/lib/schemas";
+
+export type Invoice = Schemas["InvoiceView"];
+export type InvoiceDetail = Schemas["InvoiceDetail"];

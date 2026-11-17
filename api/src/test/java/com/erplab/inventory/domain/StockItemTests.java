@@ -41,4 +41,15 @@ class StockItemTests {
 		assertThat(item.countTo(new BigDecimal("9"))).isEqualByComparingTo("4.00");
 	}
 
+	@Test
+	void reservationsReduceAvailableAndMayExceedStock() {
+		var item = new StockItem(1L, 1L);
+		item.receive(new BigDecimal("5"), BigDecimal.ONE);
+		item.reserve(new BigDecimal("7"));
+		assertThat(item.available()).isEqualByComparingTo("-2");
+
+		item.release(new BigDecimal("10"));
+		assertThat(item.getReserved()).isEqualByComparingTo("0");
+	}
+
 }

@@ -3,6 +3,7 @@ package com.erplab.common.config;
 import java.io.IOException;
 import java.util.List;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -20,7 +21,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+/** Web only: seeding runs without a web server ({@code make seed}). */
 @Configuration
+@ConditionalOnWebApplication
 @EnableMethodSecurity
 class SecurityConfig {
 
@@ -32,7 +35,8 @@ class SecurityConfig {
 			.cors(Customizer.withDefaults())
 			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth
-				.requestMatchers("/v1/system/**", "/v1/auth/login", "/v1/auth/refresh", "/docs/**", "/swagger-ui/**", "/graphql", "/graphiql", "/actuator/health/**")
+				.requestMatchers("/v1/system/**", "/v1/auth/login", "/v1/auth/refresh", "/docs/**", "/swagger-ui/**", "/graphql", "/graphiql", "/actuator/health/**",
+						"/ws/**")
 				.permitAll()
 				.anyRequest()
 				.authenticated())

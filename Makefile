@@ -10,7 +10,7 @@ COMPOSE := docker compose
 MVN     := cd api && ./mvnw -B
 
 .DEFAULT_GOAL := help
-.PHONY: help env install up down logs ps psql dev\:api dev\:web build test check fix clean
+.PHONY: help env install up down logs ps psql db-reset seed dev\:api dev\:web build test check fix clean
 
 help: ## Show this help
 	@awk '/^## --- / { t = $$0; gsub(/^## --- | ---$$/, "", t); printf "\n\033[1m%s\033[0m\n", t; next } \
@@ -41,6 +41,12 @@ ps: ## List services
 
 psql: ## Open psql in the db
 	$(COMPOSE) exec db psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+
+db-reset: ## Drop all data (stop the api first); the next api start re-creates the schema
+	$(COMPOSE) exec db psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -q -c "SET client_min_messages = warning" -c "DROP SCHEMA public CASCADE" -c "CREATE SCHEMA public"
+
+seed: ## Load demo data into an empty database (users, master data, ~4 months of history)
+	$(MVN) -q spring-boot:run -Dspring-boot.run.arguments="--app.seed-demo=true --spring.main.web-application-type=none"
 
 ## --- Apps (host) ---
 dev\:api: ## Run the api (Spring Boot, migrates on start)

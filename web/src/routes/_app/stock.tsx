@@ -20,24 +20,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, type Page, post, qs } from "@/lib/api";
 import { fmtMoney, fmtQty } from "@/lib/format";
+import type { Schemas } from "@/lib/schemas";
 import { useCan } from "@/lib/session";
 import { useAction } from "@/lib/use-action";
 
 export const Route = createFileRoute("/_app/stock")({ component: Stock });
 
-type StockRow = {
-  productId: number;
-  sku: string;
-  productName: string;
-  unitCode: string;
-  warehouseId: number;
-  warehouseCode: string;
-  quantity: number;
-  averageCost: number;
-  value: number;
-  minStock: number;
-  low: boolean;
-};
+type StockRow = Schemas["StockView"];
 
 const product: FieldDef = {
   name: "productId",
@@ -138,7 +127,7 @@ function Stock() {
     <div>
       <PageHeader
         title="Stock"
-        description="On-hand quantities per warehouse, valued at moving average cost"
+        description="On hand, reserved for confirmed sales orders, and available (negative = shortage), at moving average cost"
         actions={
           can("inventory:write") &&
           (Object.keys(operations) as Op[]).map((k) => (
@@ -195,6 +184,22 @@ function Stock() {
             header: "On hand",
             meta: { align: "right" },
             cell: ({ row }) => `${fmtQty(row.original.quantity)} ${row.original.unitCode ?? ""}`,
+          },
+          {
+            accessorKey: "reserved",
+            header: "Reserved",
+            meta: { align: "right" },
+            cell: ({ getValue }) => fmtQty(getValue()),
+          },
+          {
+            accessorKey: "available",
+            header: "Available",
+            meta: { align: "right" },
+            cell: ({ getValue }) => (
+              <span className={getValue() < 0 ? "font-medium text-destructive" : ""}>
+                {fmtQty(getValue())}
+              </span>
+            ),
           },
           {
             accessorKey: "minStock",

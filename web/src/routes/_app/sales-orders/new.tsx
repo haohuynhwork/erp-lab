@@ -9,15 +9,15 @@ export const Route = createFileRoute("/_app/sales-orders/new")({ component: NewS
 function NewSalesOrder() {
   const navigate = useNavigate();
   const create = useAction((body: unknown) => post<{ id: number }>("/sales-orders", body), {
-    success: "Sales order created",
+    success: "Quotation created",
     invalidate: [["sales-orders"]],
     onSuccess: ({ id }) => navigate({ to: "/sales-orders/$id", params: { id: String(id) } }),
   });
   return (
     <div>
       <PageHeader
-        title="New sales order"
-        description="Prices default to each product's sale price"
+        title="New quotation"
+        description="Saved as a draft quotation; confirm it to turn it into an order. Prices default to each product's sale price."
       />
       <OrderForm
         kind="sales"

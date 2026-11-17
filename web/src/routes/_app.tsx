@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useRealtime } from "@/lib/realtime";
 import { meQuery, useCan } from "@/lib/session";
 import { clearTokens, getTokens } from "@/lib/tokens";
 
@@ -47,12 +48,16 @@ const menu: Group[] = [
     items: [
       { to: "/sales-orders", label: "Sales orders", perm: "sales:read" },
       { to: "/invoices", label: "Invoices", perm: "sales:read" },
+      { to: "/credit-notes", label: "Credit notes", perm: "sales:read" },
     ],
   },
   {
     label: "Purchasing",
     icon: <Truck className="size-4" />,
-    items: [{ to: "/purchase-orders", label: "Purchase orders", perm: "purchasing:read" }],
+    items: [
+      { to: "/purchase-orders", label: "Purchase orders", perm: "purchasing:read" },
+      { to: "/bills", label: "Supplier bills", perm: "purchasing:read" },
+    ],
   },
   {
     label: "Inventory",
@@ -67,9 +72,10 @@ const menu: Group[] = [
     icon: <BookOpen className="size-4" />,
     items: [
       { to: "/journal", label: "Journal", perm: "accounting:read" },
+      { to: "/profit-and-loss", label: "Profit and loss", perm: "accounting:read" },
+      { to: "/balance-sheet", label: "Balance sheet", perm: "accounting:read" },
       { to: "/trial-balance", label: "Trial balance", perm: "accounting:read" },
       { to: "/balances", label: "Receivables & payables", perm: "accounting:read" },
-      { to: "/supplier-payments", label: "Supplier payments", perm: "accounting:read" },
       { to: "/accounts", label: "Chart of accounts", perm: "accounting:read" },
     ],
   },
@@ -92,7 +98,10 @@ const menu: Group[] = [
   {
     label: "Admin",
     icon: <Users className="size-4" />,
-    items: [{ to: "/users", label: "Users", perm: "users:manage" }],
+    items: [
+      { to: "/users", label: "Users", perm: "users:manage" },
+      { to: "/audit-log", label: "Audit log", perm: "users:manage" },
+    ],
   },
 ];
 
@@ -108,6 +117,7 @@ function AppLayout() {
   const qc = useQueryClient();
   const can = useCan();
   const { data: me } = useQuery(meQuery);
+  useRealtime();
 
   const signOut = () => {
     clearTokens();

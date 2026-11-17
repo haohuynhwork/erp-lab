@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CrudPage } from "@/components/crud-page";
 import { Badge } from "@/components/ui/badge";
 import { post, put } from "@/lib/api";
+import type { Schemas } from "@/lib/schemas";
 
 export const Route = createFileRoute("/_app/accounts")({ component: Accounts });
 
-type Account = { id: number; code: string; name: string; type: string; active: boolean };
+type Account = Schemas["AccountView"];
 
 const types = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"].map((t) => ({
   value: t,

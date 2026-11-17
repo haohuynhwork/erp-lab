@@ -4,6 +4,8 @@ import static com.erplab.common.security.Permissions.*;
 
 import java.util.Set;
 
+/** Part of the commands interface: used in CreateUser. */
+@org.springframework.modulith.NamedInterface("commands")
 public enum Role {
 
 	ADMIN(USERS_MANAGE, MASTERDATA_READ, MASTERDATA_WRITE, INVENTORY_READ, INVENTORY_WRITE, PURCHASING_READ,

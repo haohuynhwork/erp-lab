@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Check, FileText, Pencil, Truck, X } from "lucide-react";
+import { ArrowLeft, Check, Download, FileText, Pencil, Truck, X } from "lucide-react";
 import { useState } from "react";
 import { DataTable } from "@/components/data-table";
 import { Info } from "@/components/info";
@@ -10,7 +10,7 @@ import { QuantityDialog } from "@/components/quantity-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { api, post, put } from "@/lib/api";
+import { api, download, post, put } from "@/lib/api";
 import { fmtDate, fmtMoney, fmtQty } from "@/lib/format";
 import { useCan } from "@/lib/session";
 import { useAction } from "@/lib/use-action";
@@ -81,6 +81,7 @@ function SalesOrderPage() {
             warehouseId: order.warehouseId,
             orderDate: order.orderDate,
             dueDate: order.deliveryDate ?? "",
+            validUntil: order.validUntil ?? "",
             taxRate: order.taxRate,
             note: order.note ?? "",
             lines: lines.map((l) => ({
@@ -99,7 +100,7 @@ function SalesOrderPage() {
       <PageHeader
         title={
           <span className="flex items-center gap-3">
-            {order.number} <StatusBadge status={order.status} />
+            {order.number} <StatusBadge status={order.status} sales />
           </span>
         }
         description={`${order.customerName} · warehouse ${order.warehouseCode}`}
@@ -110,13 +111,19 @@ function SalesOrderPage() {
                 <ArrowLeft /> Back
               </Link>
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => download(`/reports/sales-orders/${order.id}.pdf`)}
+            >
+              <Download /> {order.status === "DRAFT" ? "Quotation PDF" : "Order PDF"}
+            </Button>
             {write && order.status === "DRAFT" && (
               <>
                 <Button variant="outline" onClick={() => setEditing(true)}>
                   <Pencil /> Edit
                 </Button>
                 <Button onClick={() => confirm.mutate(undefined)} disabled={confirm.isPending}>
-                  <Check /> Confirm
+                  <Check /> Confirm order
                 </Button>
               </>
             )}
@@ -148,7 +155,11 @@ function SalesOrderPage() {
       <Card>
         <CardContent className="grid gap-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
           <Info label="Order date" value={fmtDate(order.orderDate)} />
-          <Info label="Delivery" value={fmtDate(order.deliveryDate) || "—"} />
+          {order.status === "DRAFT" ? (
+            <Info label="Valid until" value={fmtDate(order.validUntil) || "—"} />
+          ) : (
+            <Info label="Delivery" value={fmtDate(order.deliveryDate) || "—"} />
+          )}
           <Info label="Subtotal" value={fmtMoney(order.subtotal)} />
           <Info label={`VAT ${order.taxRate}%`} value={fmtMoney(order.taxAmount)} />
           <Info label="Total" value={fmtMoney(order.total)} />
@@ -216,7 +227,7 @@ function SalesOrderPage() {
       )}
       <QuantityDialog
         title="Deliver"
-        description="Delivered quantities leave stock now; there must be enough on hand in the warehouse."
+        description="Delivered quantities leave stock and their reservation now; there must be enough on hand in the warehouse."
         open={delivering}
         onOpenChange={setDelivering}
         busy={deliver.isPending}

@@ -6,10 +6,11 @@ import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { fmtMoney } from "@/lib/format";
+import type { Schemas } from "@/lib/schemas";
 
 export const Route = createFileRoute("/_app/balances")({ component: Balances });
 
-type Row = { partnerId: number; code: string; name: string; balance: number };
+type Row = Schemas["PartnerBalance"];
 
 function Balances() {
   const [kind, setKind] = useState("receivable");

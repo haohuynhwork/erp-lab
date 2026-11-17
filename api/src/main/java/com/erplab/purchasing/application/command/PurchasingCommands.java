@@ -16,13 +16,13 @@ public final class PurchasingCommands {
 	}
 
 	/** @param unitPrice null = the product's purchase price */
-	public record LineInput(@NotNull Long productId, @NotNull @Positive BigDecimal quantity,
+	public record PurchaseLineInput(@NotNull Long productId, @NotNull @Positive BigDecimal quantity,
 			@PositiveOrZero BigDecimal unitPrice) {
 	}
 
 	/** Create or edit (Draft only). */
 	public record SavePurchaseOrder(@NotNull Long supplierId, @NotNull Long warehouseId, @NotNull LocalDate orderDate,
-			LocalDate expectedDate, String note, @NotEmpty List<@Valid LineInput> lines) {
+			LocalDate expectedDate, String note, @NotEmpty List<@Valid PurchaseLineInput> lines) {
 	}
 
 	public record ReceiptLine(@NotNull Long lineId, @NotNull @PositiveOrZero BigDecimal quantity) {
@@ -30,6 +30,14 @@ public final class PurchasingCommands {
 
 	/** @param date null = today */
 	public record ReceiveGoods(LocalDate date, @NotEmpty List<@Valid ReceiptLine> lines) {
+	}
+
+	/** @param date null = today */
+	public record CreateBill(String supplierReference, LocalDate date) {
+	}
+
+	public record PayBill(@NotNull @Positive BigDecimal amount, LocalDate date,
+			@jakarta.validation.constraints.NotBlank String method, String reference) {
 	}
 
 }

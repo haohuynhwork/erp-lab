@@ -12,8 +12,8 @@ import com.erplab.sales.application.command.SalesCommands.CreateInvoice;
 import com.erplab.sales.application.command.SalesCommands.Deliver;
 import com.erplab.sales.application.command.SalesCommands.SaveSalesOrder;
 import com.erplab.sales.application.query.SalesQueries;
-import com.erplab.sales.application.query.SalesQueries.OrderDetail;
-import com.erplab.sales.application.query.SalesQueries.OrderView;
+import com.erplab.sales.application.query.SalesQueries.SalesOrderDetail;
+import com.erplab.sales.application.query.SalesQueries.SalesOrderView;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -36,14 +36,14 @@ class SalesOrderController {
 	}
 
 	@GetMapping
-	PageResult<OrderView> list(@RequestParam(required = false) String q, @RequestParam(required = false) String status,
+	PageResult<SalesOrderView> list(@RequestParam(required = false) String q, @RequestParam(required = false) String status,
 			@RequestParam(required = false) Long customerId, @RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "50") int size) {
 		return queries.orders(q, status, customerId, page, size);
 	}
 
 	@GetMapping("/{id}")
-	OrderDetail get(@PathVariable Long id) {
+	SalesOrderDetail get(@PathVariable Long id) {
 		return queries.order(id);
 	}
 
@@ -56,21 +56,21 @@ class SalesOrderController {
 
 	@PutMapping("/{id}")
 	@PreAuthorize(WRITE)
-	OrderDetail update(@PathVariable Long id, @Valid @RequestBody SaveSalesOrder cmd) {
+	SalesOrderDetail update(@PathVariable Long id, @Valid @RequestBody SaveSalesOrder cmd) {
 		commands.update(id, cmd);
 		return queries.order(id);
 	}
 
 	@PostMapping("/{id}/confirm")
 	@PreAuthorize(WRITE)
-	OrderDetail confirm(@PathVariable Long id) {
+	SalesOrderDetail confirm(@PathVariable Long id) {
 		commands.confirm(id);
 		return queries.order(id);
 	}
 
 	@PostMapping("/{id}/cancel")
 	@PreAuthorize(WRITE)
-	OrderDetail cancel(@PathVariable Long id) {
+	SalesOrderDetail cancel(@PathVariable Long id) {
 		commands.cancel(id);
 		return queries.order(id);
 	}
@@ -78,7 +78,7 @@ class SalesOrderController {
 	/** Delivery: stock goes down, accounting books cost of goods sold. */
 	@PostMapping("/{id}/deliveries")
 	@PreAuthorize("hasAuthority('sales:write') or hasAuthority('inventory:write')")
-	OrderDetail deliver(@PathVariable Long id, @Valid @RequestBody Deliver cmd) {
+	SalesOrderDetail deliver(@PathVariable Long id, @Valid @RequestBody Deliver cmd) {
 		commands.deliver(id, cmd);
 		return queries.order(id);
 	}

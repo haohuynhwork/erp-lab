@@ -28,6 +28,8 @@ public class PurchaseOrderLine {
 
 	private BigDecimal receivedQuantity = BigDecimal.ZERO;
 
+	private BigDecimal billedQuantity = BigDecimal.ZERO;
+
 	protected PurchaseOrderLine() {
 	}
 
@@ -43,6 +45,14 @@ public class PurchaseOrderLine {
 
 	public BigDecimal remaining() {
 		return quantity.subtract(receivedQuantity);
+	}
+
+	public BigDecimal toBill() {
+		return receivedQuantity.subtract(billedQuantity);
+	}
+
+	void billed(BigDecimal qty) {
+		billedQuantity = billedQuantity.add(qty);
 	}
 
 	void receive(BigDecimal qty) {

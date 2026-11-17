@@ -1,17 +1,10 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { api } from "./api";
+import type { Schemas } from "./schemas";
 
 export type Role = "ADMIN" | "MANAGER" | "SALES" | "PURCHASING" | "WAREHOUSE" | "ACCOUNTANT";
 
-export type Me = {
-  id: number;
-  username: string;
-  fullName: string;
-  email: string | null;
-  enabled: boolean;
-  roles: Role[];
-  permissions: string[];
-};
+export type Me = Schemas["UserView"];
 
 export const meQuery = queryOptions({
   queryKey: ["me"],

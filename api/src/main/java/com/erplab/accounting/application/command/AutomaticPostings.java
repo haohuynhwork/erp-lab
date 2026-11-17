@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component;
 import com.erplab.accounting.domain.Account;
 import com.erplab.accounting.domain.JournalLine;
 import com.erplab.inventory.StockValueChanged;
+import com.erplab.purchasing.BillPaymentMade;
 import com.erplab.purchasing.GoodsReceived;
+import com.erplab.sales.CreditNoteIssued;
 import com.erplab.sales.InvoiceIssued;
 import com.erplab.sales.InvoicePaymentReceived;
 
@@ -19,7 +21,9 @@ import com.erplab.sales.InvoicePaymentReceived;
  * <ul>
  * <li>goods received: Dr inventory / Cr payables (supplier)</li>
  * <li>invoice issued: Dr receivables (customer) / Cr revenue, Cr output VAT</li>
+ * <li>credit note: Dr revenue, Dr output VAT / Cr receivables (customer)</li>
  * <li>customer payment: Dr cash / Cr receivables (customer)</li>
+ * <li>supplier bill payment: Dr payables (supplier) / Cr cash</li>
  * <li>delivery (stock issued): Dr COGS / Cr inventory</li>
  * <li>manual stock receipt: Dr inventory / Cr opening equity; manual issue and count differences: inventory
  * adjustment</li>
@@ -56,10 +60,29 @@ class AutomaticPostings {
 	}
 
 	@EventListener
+	void on(CreditNoteIssued e) {
+		var lines = new ArrayList<JournalLine>();
+		lines.add(JournalLine.debit(acc(Account.REVENUE), null, e.subtotal()));
+		if (e.taxAmount().signum() > 0) {
+			lines.add(JournalLine.debit(acc(Account.VAT_OUTPUT), null, e.taxAmount()));
+		}
+		lines.add(JournalLine.credit(acc(Account.RECEIVABLE), e.customerId(), e.total()));
+		ledger.post(e.date(), "Credit note " + e.creditNoteNumber() + " for " + e.invoiceNumber(), "CREDIT_NOTE",
+				e.creditNoteId(), e.creditNoteNumber(), lines);
+	}
+
+	@EventListener
 	void on(InvoicePaymentReceived e) {
 		ledger.post(e.date(), "Payment for " + e.invoiceNumber() + " (" + e.method() + ")", "INVOICE", e.invoiceId(),
 				e.invoiceNumber(), List.of(JournalLine.debit(acc(Account.CASH), null, e.amount()),
 						JournalLine.credit(acc(Account.RECEIVABLE), e.customerId(), e.amount())));
+	}
+
+	@EventListener
+	void on(BillPaymentMade e) {
+		ledger.post(e.date(), "Payment of " + e.billNumber() + " (" + e.method() + ")", "SUPPLIER_BILL", e.billId(),
+				e.billNumber(), List.of(JournalLine.debit(acc(Account.PAYABLE), e.supplierId(), e.amount()),
+						JournalLine.credit(acc(Account.CASH), null, e.amount())));
 	}
 
 	@EventListener

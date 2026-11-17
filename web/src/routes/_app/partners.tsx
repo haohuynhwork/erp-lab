@@ -3,22 +3,11 @@ import { useState } from "react";
 import { CrudPage } from "@/components/crud-page";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { Schemas } from "@/lib/schemas";
 
 export const Route = createFileRoute("/_app/partners")({ component: Partners });
 
-type Partner = {
-  id: number;
-  code: string;
-  name: string;
-  customer: boolean;
-  supplier: boolean;
-  taxCode: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
-  paymentTermDays: number;
-  active: boolean;
-};
+type Partner = Schemas["PartnerView"];
 
 function Partners() {
   const [role, setRole] = useState("all");

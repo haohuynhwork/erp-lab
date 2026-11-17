@@ -1,5 +1,7 @@
 package com.erplab.masterdata.domain;
 
+/** Part of the commands interface: used in SaveProduct. */
+@org.springframework.modulith.NamedInterface("commands")
 public enum ProductType {
 
 	/** Bought and consumed in production. */

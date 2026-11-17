@@ -5,12 +5,15 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import com.erplab.common.domain.BaseEntity;
 import com.erplab.common.domain.DocumentStatus;
 import com.erplab.common.domain.DomainException;
 import com.erplab.common.domain.Quantities;
 import com.erplab.sales.DeliveryShipped;
+import com.erplab.sales.SalesOrderCancelled;
+import com.erplab.sales.SalesOrderConfirmed;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -41,6 +44,9 @@ public class SalesOrder extends BaseEntity {
 
 	private LocalDate deliveryDate;
 
+	/** While Draft the order is a quotation, valid until this date. */
+	private LocalDate validUntil;
+
 	@Enumerated(EnumType.STRING)
 	private DocumentStatus status = DocumentStatus.DRAFT;
 
@@ -67,9 +73,13 @@ public class SalesOrder extends BaseEntity {
 		this.number = number;
 	}
 
-	public void edit(Long customerId, Long warehouseId, LocalDate orderDate, LocalDate deliveryDate, BigDecimal taxRate,
-			String note, List<LineInput> newLines) {
+	public void edit(Long customerId, Long warehouseId, LocalDate orderDate, LocalDate deliveryDate,
+			LocalDate validUntil, BigDecimal taxRate, String note, List<LineInput> newLines) {
 		status.requireIs(DocumentStatus.DRAFT, "edit");
+		if (validUntil != null && validUntil.isBefore(orderDate)) {
+			throw new DomainException("invalid_date", "Valid-until date is before the order date");
+		}
+		this.validUntil = validUntil;
 		if (taxRate.signum() < 0 || taxRate.compareTo(BigDecimal.valueOf(100)) > 0) {
 			throw new DomainException("invalid_tax_rate", "Tax rate must be between 0 and 100");
 		}
@@ -86,19 +96,27 @@ public class SalesOrder extends BaseEntity {
 		total = subtotal.add(taxAmount);
 	}
 
-	public void confirm() {
+	/** Turns the quotation into an order; its quantities get reserved in the warehouse. */
+	public SalesOrderConfirmed confirm() {
 		status.requireIs(DocumentStatus.DRAFT, "confirm");
 		if (lines.isEmpty()) {
 			throw new DomainException("no_lines", "Add at least one line before confirming");
 		}
 		status = DocumentStatus.CONFIRMED;
+		return new SalesOrderConfirmed(getId(), number, warehouseId,
+				lines.stream().map(l -> new SalesOrderConfirmed.Line(l.getProductId(), l.getQuantity())).toList());
 	}
 
-	public void cancel() {
+	/** @return the reservations to release, or empty when the order was still a quotation */
+	public Optional<SalesOrderCancelled> cancel() {
 		if (!status.isOpen() || lines.stream().anyMatch(l -> l.getDeliveredQuantity().signum() > 0)) {
 			throw new DomainException("cannot_cancel", "Only orders with nothing delivered can be cancelled");
 		}
+		boolean reserved = status == DocumentStatus.CONFIRMED;
 		status = DocumentStatus.CANCELLED;
+		return reserved ? Optional.of(new SalesOrderCancelled(getId(), number, warehouseId,
+				lines.stream().map(l -> new SalesOrderCancelled.Line(l.getProductId(), l.getQuantity())).toList()))
+				: Optional.empty();
 	}
 
 	/** @param quantities line id → quantity shipped now */

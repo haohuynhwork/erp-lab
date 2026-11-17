@@ -10,7 +10,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
@@ -32,10 +31,6 @@ public final class AccountingCommands {
 
 	public record PostManualEntry(@NotNull LocalDate date, @NotBlank String description,
 			@NotNull @Size(min = 2) List<@Valid ManualLine> lines) {
-	}
-
-	public record PaySupplier(@NotNull Long supplierId, LocalDate date, @NotNull @Positive BigDecimal amount,
-			@NotBlank String method, String reference) {
 	}
 
 }

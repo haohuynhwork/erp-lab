@@ -30,6 +30,8 @@ export type OrderInput = {
   orderDate: string;
   /** Expected (purchase) or delivery (sales) date. */
   dueDate: string;
+  /** Sales only: the quotation is valid until (while Draft). */
+  validUntil: string;
   taxRate: number;
   note: string;
   lines: OrderLineInput[];
@@ -40,6 +42,7 @@ export const emptyOrder = (): OrderInput => ({
   warehouseId: null,
   orderDate: today(),
   dueDate: "",
+  validUntil: "",
   taxRate: 10,
   note: "",
   lines: [{ productId: null, quantity: 1, unitPrice: null }],
@@ -125,6 +128,16 @@ export function OrderForm({
               onChange={(e) => set({ dueDate: e.target.value })}
             />
           </div>
+          {kind === "sales" && (
+            <div>
+              <Label className="mb-1.5">Quotation valid until</Label>
+              <Input
+                type="date"
+                value={order.validUntil}
+                onChange={(e) => set({ validUntil: e.target.value })}
+              />
+            </div>
+          )}
           {kind === "sales" && (
             <div>
               <Label className="mb-1.5">VAT %</Label>
@@ -216,7 +229,7 @@ export function OrderForm({
       </Card>
       <div className="flex justify-end">
         <Button type="submit" disabled={!valid || saving}>
-          {saving ? "Saving…" : "Save draft"}
+          {saving ? "Saving…" : kind === "sales" ? "Save quotation" : "Save draft"}
         </Button>
       </div>
     </form>
@@ -253,6 +266,7 @@ export function orderBody(kind: "purchase" | "sales", o: OrderInput) {
         warehouseId: o.warehouseId,
         orderDate: o.orderDate,
         deliveryDate: o.dueDate || null,
+        validUntil: o.validUntil || null,
         taxRate: o.taxRate,
         note: o.note,
         lines,
