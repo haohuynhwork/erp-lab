@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: erp-lab-api
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:${DB_PORT:5432}/${POSTGRES_DB:erp}}
+    username: ${POSTGRES_USER:erp}
+    password: ${POSTGRES_PASSWORD:erp}
+  jackson:
+    deserialization:
+      # missing booleans/ints in request bodies mean false/0
+      fail-on-null-for-primitives: false
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+  graphql:
+    http:
+      path: /graphql
+    graphiql:
+      enabled: ${API_DOCS:true}
+
+server:
+  port: ${API_PORT:8080}
+  forward-headers-strategy: framework
+
+# WEB_URL / API_URL: public URLs; their paths are the web and api prefixes (see AppProperties).
+app:
+  web-url: ${WEB_URL:http://localhost:5173/web}
+  api-url: ${API_URL:http://localhost:8080/api}
+  # Signs access (15 min) and refresh (7 days) tokens, HS256, at least 32 characters.
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdef}
+  # Password of the 'admin' user created on an empty database.
+  seed-password: ${SEED_PASSWORD:admin12345}
+
+springdoc:
+  api-docs:
+    path: /docs/openapi
+    enabled: ${API_DOCS:true}
+  swagger-ui:
+    path: /docs
+    enabled: ${API_DOCS:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    # ArchUnit (Spring Modulith) can't parse JDK 26+ class files and logs a warning per class; harmless.
+    com.tngtech.archunit: ERROR

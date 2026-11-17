@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.make.env
+*.log
+.DS_Store
+.idea/
+# api (Maven)
+api/target/
+# web
+web/src/routeTree.gen.ts
+.data/
